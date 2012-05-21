@@ -53,16 +53,22 @@ def pass_to_neo4j(data=nil)
   request_method = request_method.downcase.to_sym
 
   if request_method == :get
-    response = REST[request.path].get({:accept => request.accept, :content_type => request.content_type})
+    proxy_response = REST[request.path].get({:accept => request.accept, :content_type => request.content_type,
+                                             :cookies => request.cookies})
   else
     data = data || request.body.read
-    response = REST[request.path].send(request_method, data, {:accept => request.accept, :content_type => request.content_type})
+    proxy_response = REST[request.path].send(request_method, data, {:accept => request.accept,
+                                                                    :content_type => request.content_type,
+                                                                    :cookies => request.cookies})
   end
 
-  content_type response.headers[:content_type]
-  if %W(application/json application/x-javascript text/css text/html).include? response.headers[:content_type]
-    response.gsub REPLACE_DB_HOST, ""
+  cookies = proxy_response.cookies
+  response.set_cookie("JSESSIONID", :value => cookies["JSESSIONID"], :path => cookies["Path"]) if cookies
+
+  content_type proxy_response.headers[:content_type]
+  if %W(application/json application/x-javascript text/css text/html).include? proxy_response.headers[:content_type]
+    proxy_response.gsub REPLACE_DB_HOST, ""
   else
-    response
+    proxy_response
   end
 end
